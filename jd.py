@@ -34,6 +34,7 @@ url1 = 'http://club.jd.com/comment/productPageComments.action?callback=fetchJSON
 url2 = '&score=0&sortType=5&page='
 url3 = '&pageSize=10&isShadowSku=0'
 
+global_num = 0
 
 def write_html(file_name, html):
     with open(file_name, 'a') as f:
@@ -47,12 +48,14 @@ def write_comments(file_name, comments):
         for k in comments:
             f.write(k + "\n")
 
-def handle_comments(times, scores, product_colors, contents, page, comments):
+def handle_comments(times, scores, product_colors, contents, page,  users, agreements, comments):
     for i in xrange(len(times)):
-        k = "%s\t%s\t%s\t%s\t%s" % (page + 1, product_colors[i], times[i], scores[i], contents[i])
+        k = "%s\t%s\t%s\t%s\t%s\t%s\t%s" % (page + 1, scores[i], users[i], times[i], agreements[i], product_colors[i], contents[i])
         comments.append(k)
     
 def get_data(product_id, ran_num):
+    global global_num
+    count = 0
     for i in ran_num:
         comments = []
         url = url1 + product_id + url2 + str(i) + url3
@@ -64,26 +67,45 @@ def get_data(product_id, ran_num):
         scores = re.findall(r'"referenceImage".*?,"score":(.*?),',html)
         product_colors = re.findall(r'"productColor":([^,]+),', html)
         contents = re.findall(r'"guid":.{1,100},"content":"([^"]+)","creationTime".{1,30},"isTop".{1,40}"referenceImage"',html)
-        #print times
-        #print scores
-        #print contents
-        #print product_colors
+        users = re.findall(r'"isReplyGrade":[^"]+"nickname":[^"]*"([^"]+)"', html)
+        agreements = re.findall(r'"title":.{1,20},"usefulVoteCount":([^,]+)', html)
+#        print times
+#        print scores
+#        print contents
+#        print product_colors
+#        print users
+#        print agreements
         #write_comments(product_id + "_contents.txt", contents)
         if len(times) == 0 and len(scores) == 0 and len(contents) == 0:
             print "request null and stop"
-            break
-        print "times len:%s, scores len:%s, contents len:%s, product_colors len:%s" \
-            % (len(times), len(scores), len(contents), len(product_colors))
-        #for k in product_colors:
-        #    print k.decode("gbk")
-        handle_comments(times, scores, product_colors, contents, i, comments)
-        write_comments("output.txt", comments)
+            global_num = i
+            return 1
+        print "page: %s--times len:%s, scores len:%s, contents len:%s, product_colors len:%s, users len:%s, agreements len:%s" \
+            % (i+1, len(times), len(scores), len(contents), len(product_colors), len(users), len(agreements))
+        if (len(agreements) < 10):
+            agreements = [0 for j in range(10)]
+        handle_comments(times, scores, product_colors, contents, i, users, agreements, comments)
+        write_comments(product_id + "_output.txt", comments)
         time.sleep(3)
-
-begin_page = 811
-end_page = 813
-#ran_num=random.sample(range(2), 2)
-#ran_num = [i for i in xrange(802)]
-ran_num = [i for i in xrange(begin_page - 1, end_page, 1)]
-get_data("1756935", ran_num)
+        count = count + 1
+        if (count % 5 == 0):
+            print "wait for 8 seconds"
+            time.sleep(8)
+    return 0
+        
+print "run the jd.py"
+product_id = sys.argv[1]
+begin_page = int(sys.argv[2])
+end_page = int(sys.argv[3])
+global_num = begin_page - 1
+#product_id = "4328159"
+#begin_page = 1
+#end_page = 2
+while(1):
+    ran_num = [i for i in xrange(global_num, end_page, 1)]
+    status = get_data(product_id, ran_num)
+    if status == 0:
+        break
+    print "wait for 20 seconds"
+    time.sleep(20)
 
